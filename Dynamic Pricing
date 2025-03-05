@@ -1,1 +1,87 @@
+import datetime
+import random
+
+class Flight:
+    def __init__(self, airline, flight_number, origin, destination, departure_time, total_seats, base_prices, airport_fees):
+        self.airline = airline
+        self.flight_number = flight_number
+        self.origin = origin
+        self.destination = destination
+        self.departure_time = departure_time
+        self.total_seats = total_seats
+        self.available_seats = {seat_class: total_seats // len(base_prices) for seat_class in base_prices}
+        self.base_prices = base_prices  # Different seat class prices
+        self.airport_fees = airport_fees  # Airport-based extra charges
+
+    def calculate_dynamic_price(self, seat_class):
+        """Calculate price based on time, availability, demand, airline, and airport fees."""
+        time_remaining = (self.departure_time - datetime.datetime.now()).days
+        demand_factor = random.uniform(1.0, 2.0)  # Simulated demand factor
+        availability_factor = (self.total_seats - sum(self.available_seats.values())) / self.total_seats
+        competitor_factor = random.uniform(0.9, 1.1)  # Market-based variation
+
+        # Base price for selected class
+        base_price = self.base_prices[seat_class]
+
+        # Adjust price based on demand, time, and availability
+        price = base_price * (1 + availability_factor) * demand_factor * competitor_factor
+
+        # Increase price as flight date gets closer
+        if time_remaining < 7:
+            price *= 1.5
+        elif time_remaining < 30:
+            price *= 1.2
+
+        # Adjust price based on departure & arrival airport fees
+        airport_fee = self.airport_fees.get(self.origin, 0) + self.airport_fees.get(self.destination, 0)
+        price += airport_fee
+
+        # Adjust price based on airline's policy (some airlines charge more)
+        airline_factor = {"Emirates": 1.2, "Delta": 1.1, "Air India": 1.0}.get(self.airline, 1.0)
+        price *= airline_factor
+
+        return round(price, 2)
+
+    def book_ticket(self, seat_class):
+        """Book a ticket in the selected class if available."""
+        if self.available_seats[seat_class] > 0:
+            ticket_price = self.calculate_dynamic_price(seat_class)
+            self.available_seats[seat_class] -= 1
+            return f"Ticket booked in {seat_class} class with {self.airline}! Price: ${ticket_price}"
+        else:
+            return f"No seats available in {seat_class} class!"
+
+    def flight_info(self):
+        """Returns flight details including seat availability and pricing factors."""
+        return (f"{self.airline} Flight {self.flight_number} | {self.origin} → {self.destination} | "
+                f"Departure: {self.departure_time.strftime('%Y-%m-%d %H:%M')} | "
+                f"Seats Left: " + ", ".join(f"{cls}={self.available_seats[cls]}" for cls in self.available_seats))
+
+# Admin-defined settings
+airports = ["JFK", "LAX", "Heathrow", "Dubai", "Mumbai"]
+airlines = ["Emirates", "Delta", "Air India"]
+seat_classes = ["Economy", "Business", "First Class"]
+airport_fees = {"JFK": 50, "LAX": 40, "Heathrow": 70, "Dubai": 60, "Mumbai": 30}  # Additional fees per airport
+
+# Example Usage
+if __name__ == "__main__":
+    flight1 = Flight(
+        airline="Emirates", 
+        flight_number="EK202", 
+        origin="JFK", 
+        destination="Dubai", 
+        departure_time=datetime.datetime(2025, 6, 15, 14, 30),
+        total_seats=150,
+        base_prices={'Economy': 500, 'Business': 1000, 'First Class': 2500},
+        airport_fees=airport_fees
+    )
+
+    print(flight1.flight_info())  # Display flight details
+
+    # Simulating bookings for different seat classes
+    print(flight1.book_ticket("Economy"))
+    print(flight1.book_ticket("Business"))
+    print(flight1.book_ticket("First Class"))
+
+    print(flight1.flight_info())  # Updated flight details
 
