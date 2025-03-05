@@ -67,7 +67,7 @@ class BookingHistory:
         for booking in self.bookings:
             if booking["booking_id"] == booking_id:
                 booking["upgrade_history"].append(f"Upgraded to {new_class}")
-                break
+                br
     
     def add_review(self, booking_id, review):
         for booking in self.bookings:
