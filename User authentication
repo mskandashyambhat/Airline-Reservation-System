@@ -1,0 +1,96 @@
+import hashlib
+import sqlite3
+import os
+
+# Database setup (using a file for persistence)
+DATABASE_FILE = "airline.db"
+
+def create_users_table():
+    """Creates the users table if it doesn't exist."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password_hash TEXT,
+            salt TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def generate_salt():
+    """Generates a random salt for password hashing."""
+    return os.urandom(16).hex()
+
+def hash_password(password, salt):
+    """Hashes a password using SHA-256 with a salt."""
+    salted_password = salt.encode() + password.encode()
+    return hashlib.sha256(salted_password).hexdigest()
+
+def register_user(username, password):
+    """Registers a new user with a salt."""
+    salt = generate_salt()
+    hashed_password = hash_password(password, salt)
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)", (username, hashed_password, salt))
+        conn.commit()
+        conn.close()
+        return True, "Registration successful."
+    except sqlite3.IntegrityError:
+        return False, "Username already exists."
+    except Exception as e:
+        return False, f"Registration failed: {e}"
+
+def authenticate_user(username, password):
+    """Authenticates a user using the stored salt."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT password_hash, salt FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if user:
+        stored_hash, salt = user
+        hashed_password = hash_password(password, salt)
+        if hashed_password == stored_hash:
+            return True, "Authentication successful."
+        else:
+            return False, "Invalid username or password."
+    else:
+        return False, "Invalid username or password."
+
+def main():
+    """Main function for the command-line interface."""
+    create_users_table()
+    while True:
+        print("\nAirline Reservation System Authentication")
+        print("1. Register")
+        print("2. Login")
+        print("3. Exit")
+        choice = input("Enter your choice: ")
+
+        if choice == "1":
+            username = input("Username: ")
+            password = input("Password: ")
+            success, message = register_user(username, password)
+            print(message)
+        elif choice == "2":
+            username = input("Username: ")
+            password = input("Password: ")
+            success, message = authenticate_user(username, password)
+            print(message)
+            if success:
+                print("Welcome!")
+                # Here you could implement the rest of the airline reservation system
+        elif choice == "3":
+            print("Exiting...")
+            break
+        else:
+            print("Invalid choice.")
+
+if __name__ == "__main__":
+    main()
