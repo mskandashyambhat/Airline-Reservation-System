@@ -1,0 +1,148 @@
+import json
+
+class BookingHistory:
+    def __init__(self):
+        self.bookings = []
+        self.cancellations = []
+        self.customer_score = {}
+        self.revenue = 0
+        self.waitlist = []
+        self.flight_popularity = {}
+        self.customer_tiers = {}
+    
+    def add_booking(self, customer_name, flight_name, date, cost, seat_number, payment_status, passengers=None, promo_code=None):
+        passengers = passengers if passengers else [customer_name]
+        booking = {
+            "customer_name": customer_name,
+            "flight_name": flight_name,
+            "date": date,
+            "cost": cost,
+            "seat_number": seat_number,
+            "payment_status": payment_status,
+            "passengers": passengers,
+            "booking_id": len(self.bookings) + 1,
+            "discount_applied": False,
+            "price_adjustment": 0,
+            "notifications": [],
+            "promo_code": promo_code,
+            "flight_status": "Scheduled",
+            "refund_status": None,
+            "upgrade_history": [],
+            "review": None,
+            "modification_log": []
+        }
+        if self.customer_score.get(customer_name, 0) >= 5:
+            booking["discount_applied"] = True
+            booking["cost"] *= 0.9  # 10% discount for frequent flyers
+        
+        self.bookings.append(booking)
+        self.customer_score[customer_name] = self.customer_score.get(customer_name, 0) + 1
+        self.revenue += booking["cost"]
+        self.flight_popularity[flight_name] = self.flight_popularity.get(flight_name, 0) + 1
+        self.update_customer_tier(customer_name)
+    
+    def cancel_booking(self, booking_id, refund_status="Pending"):
+        for booking in self.bookings:
+            if booking["booking_id"] == booking_id:
+                self.bookings.remove(booking)
+                booking["refund_status"] = refund_status
+                self.cancellations.append(booking)
+                customer_name = booking["customer_name"]
+                self.customer_score[customer_name] = max(0, self.customer_score[customer_name] - 1)
+                self.revenue -= booking["cost"]
+                break
+    
+    def modify_booking(self, booking_id, new_date=None, new_seat=None):
+        for booking in self.bookings:
+            if booking["booking_id"] == booking_id:
+                if new_date:
+                    booking["modification_log"].append(f"Date changed to {new_date}")
+                    booking["date"] = new_date
+                if new_seat:
+                    booking["modification_log"].append(f"Seat changed to {new_seat}")
+                    booking["seat_number"] = new_seat
+                break
+    
+    def upgrade_seat(self, booking_id, new_class):
+        for booking in self.bookings:
+            if booking["booking_id"] == booking_id:
+                booking["upgrade_history"].append(f"Upgraded to {new_class}")
+                break
+    
+    def add_review(self, booking_id, review):
+        for booking in self.bookings:
+            if booking["booking_id"] == booking_id:
+                booking["review"] = review
+                break
+    
+    def update_customer_tier(self, customer_name):
+        flights = self.customer_score.get(customer_name, 0)
+        if flights >= 20:
+            self.customer_tiers[customer_name] = "Platinum"
+        elif flights >= 10:
+            self.customer_tiers[customer_name] = "Gold"
+        elif flights >= 5:
+            self.customer_tiers[customer_name] = "Silver"
+        else:
+            self.customer_tiers[customer_name] = "Regular"
+    
+    def get_booking_history(self):
+        return self.bookings
+    
+    def get_cancellation_history(self):
+        return self.cancellations
+    
+    def total_flights_taken(self):
+        return len(self.bookings)
+    
+    def total_flights_canceled(self):
+        return len(self.cancellations)
+    
+    def get_customer_score(self, customer_name):
+        return self.customer_score.get(customer_name, 0)
+    
+    def search_bookings(self, customer_name=None, flight_name=None, date=None):
+        results = [b for b in self.bookings if 
+                   (not customer_name or b["customer_name"] == customer_name) and
+                   (not flight_name or b["flight_name"] == flight_name) and
+                   (not date or b["date"] == date)]
+        return results
+    
+    def waitlist_customer(self, customer_name, flight_name, date):
+        self.waitlist.append({"customer_name": customer_name, "flight_name": flight_name, "date": date})
+    
+    def get_waitlist(self):
+        return self.waitlist
+    
+    def send_notification(self, booking_id, message):
+        for booking in self.bookings:
+            if booking["booking_id"] == booking_id:
+                booking["notifications"].append(message)
+                break
+    
+    def save_data(self, filename="booking_data.json"):
+        data = {
+            "bookings": self.bookings,
+            "cancellations": self.cancellations,
+            "customer_score": self.customer_score,
+            "revenue": self.revenue,
+            "waitlist": self.waitlist,
+            "flight_popularity": self.flight_popularity,
+            "customer_tiers": self.customer_tiers
+        }
+        with open(filename, "w") as file:
+            json.dump(data, file)
+    
+    def load_data(self, filename="booking_data.json"):
+        try:
+            with open(filename, "r") as file:
+                data = json.load(file)
+                self.bookings = data["bookings"]
+                self.cancellations = data["cancellations"]
+                self.customer_score = data["customer_score"]
+                self.revenue = data["revenue"]
+                self.waitlist = data["waitlist"]
+                self.flight_popularity = data["flight_popularity"]
+                self.customer_tiers = data["customer_tiers"]
+        except FileNotFoundError:
+            pass
