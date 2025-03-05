@@ -5,8 +5,8 @@ import os
 # Database setup (using a file for persistence)
 DATABASE_FILE = "airline.db"
 
-def create_users_table():
-    """Creates the users table if it doesn't exist."""
+def create_tables():
+    """Creates the users, flights, and reservations tables if they don't exist."""
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -15,6 +15,24 @@ def create_users_table():
             username TEXT UNIQUE,
             password_hash TEXT,
             salt TEXT
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS flights (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            flight_number TEXT UNIQUE,
+            destination TEXT,
+            seats INTEGER
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS reservations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            flight_id INTEGER,
+            seat_number INTEGER,
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(flight_id) REFERENCES flights(id)
         )
     """)
     conn.commit()
@@ -47,50 +65,26 @@ def register_user(username, password):
 
 def authenticate_user(username, password):
     """Authenticates a user using the stored salt."""
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT password_hash, salt FROM users WHERE username = ?", (username,))
-    user = cursor.fetchone()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, password_hash, salt FROM users WHERE username = ?", (username,))
+        user = cursor.fetchone()
+        conn.close()
 
-    if user:
-        stored_hash, salt = user
-        hashed_password = hash_password(password, salt)
-        if hashed_password == stored_hash:
-            return True, "Authentication successful."
+        if user:
+            user_id, stored_hash, salt = user
+            hashed_password = hash_password(password, salt)
+            if hashed_password == stored_hash:
+                return True, "Authentication successful.", user_id
+            else:
+                return False, "Invalid username or password.", None
         else:
-            return False, "Invalid username or password."
-    else:
-        return False, "Invalid username or password."
+            return False, "Invalid username or password.", None
+    except Exception as e:
+        return False, f"Authentication failed: {e}", None
 
-def main():
-    """Main function for the command-line interface."""
-    create_users_table()
-    while True:
-        print("\nAirline Reservation System Authentication")
-        print("1. Register")
-        print("2. Login")
-        print("3. Exit")
-        choice = input("Enter your choice: ")
-
-        if choice == "1":
-            username = input("Username: ")
-            password = input("Password: ")
-            success, message = register_user(username, password)
-            print(message)
-        elif choice == "2":
-            username = input("Username: ")
-            password = input("Password: ")
-            success, message = authenticate_user(username, password)
-            print(message)
-            if success:
-                print("Welcome!")
-                # Here you could implement the rest of the airline reservation system
-        elif choice == "3":
-            print("Exiting...")
-            break
-        else:
-            print("Invalid choice.")
-
-if __name__ == "__main__":
-    main()
+# Example usage
+create_tables()
+print(register_user("testuser", "testpassword"))
+print(authenticate_user("testuser", "testpassword"))
