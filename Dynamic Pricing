@@ -1,67 +1,105 @@
 import datetime
 import random
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Flight:
     def __init__(self, flight_number, origin, destination, departure_time, total_seats, base_prices):
+        if departure_time <= datetime.datetime.now():
+            raise ValueError("Departure time must be in the future.")
         self.flight_number = flight_number
         self.origin = origin
         self.destination = destination
         self.departure_time = departure_time
         self.total_seats = total_seats
         self.available_seats = {'Economy': total_seats // 2, 'Business': total_seats // 3, 'First Class': total_seats // 6}
-        self.base_prices = base_prices  # Base prices for different classes
+        self.base_prices = base_prices
 
     def calculate_dynamic_price(self, seat_class):
-        """Calculates ticket price based on time, availability, and demand."""
         time_remaining = (self.departure_time - datetime.datetime.now()).days
-        demand_factor = random.uniform(1.0, 2.0)  # Simulating demand
+        demand_factor = random.uniform(1.0, 2.0)
         availability_factor = (self.total_seats - sum(self.available_seats.values())) / self.total_seats
-        competitor_factor = random.uniform(0.9, 1.1)  # Simulating market variation
+        competitor_factor = random.uniform(0.9, 1.1)
 
-        # Base price for the selected class
         base_price = self.base_prices[seat_class]
 
-        # Adjust price based on seat availability and demand
         price = base_price * (1 + availability_factor) * demand_factor * competitor_factor
 
-        # Increase price as flight date gets closer
         if time_remaining < 7:
-            price *= 1.5  # 50% increase for last-minute bookings
+            price *= 1.5
         elif time_remaining < 30:
-            price *= 1.2  # 20% increase for near departures
+            price *= 1.2
 
         return round(price, 2)
 
     def book_ticket(self, seat_class):
-        """Books a ticket for the selected class if available."""
+        if seat_class not in self.available_seats:
+            raise ValueError(f"Invalid seat class: {seat_class}")
+
         if self.available_seats[seat_class] > 0:
             ticket_price = self.calculate_dynamic_price(seat_class)
             self.available_seats[seat_class] -= 1
+            logging.info(f"Ticket booked: Flight {self.flight_number}, Class {seat_class}, Price ${ticket_price}")
             return f"Ticket booked in {seat_class}! Price: ${ticket_price}"
         else:
+            logging.warning(f"No seats available: Flight {self.flight_number}, Class {seat_class}")
             return f"No seats available in {seat_class} class!"
 
     def flight_info(self):
-        """Returns flight details with class-wise seat availability."""
         return (f"Flight {self.flight_number} | {self.origin} → {self.destination} | "
                 f"Departure: {self.departure_time.strftime('%Y-%m-%d %H:%M')} | "
                 f"Seats Left: Economy={self.available_seats['Economy']}, "
                 f"Business={self.available_seats['Business']}, "
                 f"First Class={self.available_seats['First Class']}")
 
-# Example Usage
+def search_flights(flights, origin, destination, departure_date):
+    """Searches flights based on origin, destination, and date."""
+    results = []
+    for flight in flights:
+        if (flight.origin == origin and flight.destination == destination and
+                flight.departure_time.date() == departure_date.date()):
+            results.append(flight)
+    return results
+
+def get_user_input(prompt, input_type=str):
+    """Gets user input with type checking."""
+    while True:
+        try:
+            user_input = input_type(input(prompt))
+            return user_input
+        except ValueError:
+            print(f"Invalid input. Please enter a valid {input_type.__name__}.")
+
 if __name__ == "__main__":
-    flight1 = Flight(
-        "AI101", "New York", "London", datetime.datetime(2025, 6, 15, 14, 30),
-        total_seats=120,
-        base_prices={'Economy': 500, 'Business': 1000, 'First Class': 2000}
-    )
+    flights = [
+        Flight("AI101", "New York", "London", datetime.datetime(2025, 6, 15, 14, 30), 120,
+               {'Economy': 500, 'Business': 1000, 'First Class': 2000}),
+        Flight("BA202", "London", "Paris", datetime.datetime(2025, 6, 16, 10, 0), 100,
+               {'Economy': 300, 'Business': 700, 'First Class': 1500}),
+        Flight("UA303", "New York", "London", datetime.datetime(2025, 6, 16, 16, 0), 150,
+               {'Economy': 550, 'Business': 1100, 'First Class': 2200}),
+    ]
 
-    print(flight1.flight_info())  # Display flight details
+    origin = get_user_input("Enter origin: ")
+    destination = get_user_input("Enter destination: ")
+    departure_date = get_user_input("Enter departure date (YYYY-MM-DD): ", lambda x: datetime.datetime.strptime(x, '%Y-%m-%d'))
 
-    # Simulating ticket booking for different classes
-    print(flight1.book_ticket("Economy"))
-    print(flight1.book_ticket("Business"))
-    print(flight1.book_ticket("First Class"))
+    found_flights = search_flights(flights, origin, destination, departure_date)
 
-    print(flight1.flight_info())  # Updated flight details
+    if found_flights:
+        print("\nAvailable Flights:")
+        for i, flight in enumerate(found_flights):
+            print(f"{i + 1}. {flight.flight_info()}")
+
+        flight_choice = get_user_input("Select flight number: ", int) - 1
+        if 0 <= flight_choice < len(found_flights):
+            selected_flight = found_flights[flight_choice]
+            seat_class = get_user_input("Enter seat class (Economy/Business/First Class): ")
+            print(selected_flight.book_ticket(seat_class))
+            print(selected_flight.flight_info())
+        else:
+            print("Invalid flight selection.")
+    else:
+        print("No flights found.")
