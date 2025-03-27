@@ -1,0 +1,37 @@
+class AirlineReservation:
+    def __init__(self, rows, seats_per_row):
+        self.rows = rows
+        self.seats_per_row = seats_per_row
+        self.seating = [["Available" for _ in range(seats_per_row)] for _ in range(rows)]
+
+    def display_seats(self):
+        print("Seat Layout (Row x Seat):")
+        for i, row in enumerate(self.seating):
+            print(f"Row {i+1}: {row}")
+
+    def reserve_seat(self, row, seat):
+        if row < 1 or row > self.rows or seat < 1 or seat > self.seats_per_row:
+            print("Invalid seat number. Please try again.")
+        elif self.seating[row-1][seat-1] == "Reserved":
+            print("Sorry, this seat is already reserved.")
+        else:
+            self.seating[row-1][seat-1] = "Reserved"
+            print(f"Seat {seat} in Row {row} has been successfully reserved.")
+
+    def check_seat(self, row, seat):
+        if row < 1 or row > self.rows or seat < 1 or seat > self.seats_per_row:
+            print("Invalid seat number. Please try again.")
+        else:
+            status = self.seating[row-1][seat-1]
+            print(f"Seat {seat} in Row {row} is currently {status}.")
+
+# Example usage
+if __name__ == "__main__":
+    rows = 5
+    seats_per_row = 4
+    system = AirlineReservation(rows, seats_per_row)
+
+    system.display_seats()
+    system.reserve_seat(2, 3)
+    system.check_seat(2, 3)
+    system.display_seats()
